@@ -1,35 +1,35 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tsa_rfc3161/tsa_rfc3161.dart';
+import 'package:hive/hive.dart';
 
-void main() {
+String boxFilenames = "filenames";
+String boxTSQ = "tsq";
+String boxTSR = "tsr";
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (!kIsWeb && !Hive.isBoxOpen(boxFilenames)) {
+    Hive.init((await getApplicationDocumentsDirectory()).path);
+  }
+
+  await Hive.openBox(boxFilenames);
+  await Hive.openBox<TSARequest>(boxTSQ);
+  Hive.registerAdapter(TSRAequestAdapter());
+
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
@@ -40,16 +40,6 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
 
   @override
@@ -57,51 +47,52 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  List<TSAResponse> listTSR = [];
+  List<String> filenames = [];
+  Map<String, TSAResponse> mapFilenameTSARequest = {};
+  Map<String, List<TSAResponse>> mapFilenameTSAResponses = {};
+
+  late Box hiveFilenames;
+  late Box hiveTSQ;
 
   String _errorMessage = "";
 
-  get onPressed => null;
+  @override
+  initState() {
+    super.initState();
+    hiveFilenames = Hive.box(boxFilenames);
+    hiveTSQ = Hive.box<TSARequest>(boxTSQ);
+  }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Card(
-                child: Row(children: [
-                  IconButton(
-                      onPressed: _timestamp,
-                      icon: const Icon(Icons.upload_file, size: 100)),
-                  const Text("Choose file")
-                ]),
-              ),
+        body: Center(
+      child: Column(
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Card(
+              child: Row(children: [
+                IconButton(
+                    onPressed: _timestamp,
+                    icon: const Icon(Icons.upload_file, size: 100)),
+                const Text("Choose file")
+              ]),
             ),
-            ListView.builder(
-              shrinkWrap: true,
-              itemCount: listTSR.length,
-              itemBuilder: (BuildContext context, int index) {
-                return ListTile(
-                  title: Text(index.toString()),
-                );
-              },
-            )
-          ],
-        ),
+          ),
+          ListView.builder(
+            shrinkWrap: true,
+            itemCount: hiveFilenames.length,
+            itemBuilder: (BuildContext context, int index) {
+              return ListTile(
+                title:
+                    Text(hiveFilenames.getAt(hiveFilenames.length - index - 1)),
+              );
+            },
+          )
+        ],
       ),
-      // This trailing comma makes auto-formatting nicer for build methods.
-    );
+    ));
   }
 
   void _timestamp() async {
@@ -109,7 +100,35 @@ class _MyHomePageState extends State<MyHomePage> {
     if (result == null) {
       return;
     }
-    _timestampFile(result.files.single.path!);
+
+    int nonceValue =
+        DateTime.now().millisecondsSinceEpoch; // Utiliser un entier unique
+
+    try {
+      TSARequest tsq = TSARequest.fromFile(
+          filepath: result.files.single.path!,
+          algorithm: TSAHash.sha256,
+          nonce: nonceValue,
+          certReq: true);
+      //
+      // everything is good, let's add
+      //
+      hiveFilenames.add(result.files.single.path!);
+      hiveTSQ.put(result.files.single.path!, tsq);
+    } on Exception catch (e) {
+      _errorMessage = "exception : ${e.toString()}";
+      SnackBar snackBar = SnackBar(
+        content: Text(_errorMessage),
+      );
+
+      // Find the ScaffoldMessenger in the widget tree
+      // and use it to show a SnackBar.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    }
+
+    setState(() {});
+    // _timestampFile(result.files.single.path!);
   }
 
   Future<void> _timestampFile(filepath) async {
@@ -123,12 +142,11 @@ class _MyHomePageState extends State<MyHomePage> {
           nonce: nonceValue,
           certReq: true);
 
-      TSAResponse? tsr = await TSAResponse(tsq!,
+      TSAResponse? tsr = await TSAResponse(tsq,
               hostnameTimeStampProvider: "http://timestamp.digicert.com")
           .run();
 
       if (tsr != null) {
-        listTSR.add(tsr);
         setState(() {});
       } else {
         _errorMessage = "error";
@@ -137,5 +155,21 @@ class _MyHomePageState extends State<MyHomePage> {
       _errorMessage = "exception : ${e.toString()}";
     }
     setState(() {});
+  }
+}
+
+// Can be generated automatically
+class TSRAequestAdapter extends TypeAdapter<TSARequest> {
+  @override
+  final typeId = 0;
+
+  @override
+  TSARequest read(BinaryReader reader) {
+    return TSARequest.fromUint8List(reader.read());
+  }
+
+  @override
+  void write(BinaryWriter writer, TSARequest obj) {
+    writer.write(obj.asn1sequence.encodedBytes);
   }
 }

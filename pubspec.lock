@@ -168,6 +168,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  hive:
+    dependency: "direct main"
+    description:
+      name: hive
+      sha256: "8dcf6db979d7933da8217edcec84e9df1bdb4e4edc7fc77dbd5aa74356d6d941"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.3"
   http:
     dependency: transitive
     description:
@@ -257,7 +265,7 @@ packages:
     source: hosted
     version: "1.9.0"
   path_provider:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: path_provider
       sha256: fec0d61223fba3154d87759e3cc27fe2c8dc498f6386c6d6fc80d1afdd1bf378
@@ -401,10 +409,10 @@ packages:
     dependency: "direct main"
     description:
       name: tsa_rfc3161
-      sha256: "0892a525db58872667ca7cc4f55dd31b63fd0bdd993a615760ab0374150d9299"
+      sha256: f424e1473feb8302bc74e52fea83839cef299208c1a72cb61e019ca6c6d12dbd
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.18"
+    version: "1.0.19"
   typed_data:
     dependency: transitive
     description:
