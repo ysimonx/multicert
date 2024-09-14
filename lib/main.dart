@@ -100,7 +100,6 @@ class _MyHomePageState extends State<MyHomePage> {
     if (result == null) {
       return;
     }
-
     int nonceValue =
         DateTime.now().millisecondsSinceEpoch; // Utiliser un entier unique
 
@@ -120,40 +119,12 @@ class _MyHomePageState extends State<MyHomePage> {
       SnackBar snackBar = SnackBar(
         content: Text(_errorMessage),
       );
-
-      // Find the ScaffoldMessenger in the widget tree
-      // and use it to show a SnackBar.
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(snackBar);
+
+      return;
     }
 
-    setState(() {});
-    // _timestampFile(result.files.single.path!);
-  }
-
-  Future<void> _timestampFile(filepath) async {
-    int nonceValue =
-        DateTime.now().millisecondsSinceEpoch; // Utiliser un entier unique
-
-    try {
-      TSARequest tsq = TSARequest.fromFile(
-          filepath: filepath,
-          algorithm: TSAHash.sha256,
-          nonce: nonceValue,
-          certReq: true);
-
-      TSAResponse? tsr = await TSAResponse(tsq,
-              hostnameTimeStampProvider: "http://timestamp.digicert.com")
-          .run();
-
-      if (tsr != null) {
-        setState(() {});
-      } else {
-        _errorMessage = "error";
-      }
-    } on Exception catch (e) {
-      _errorMessage = "exception : ${e.toString()}";
-    }
     setState(() {});
   }
 }
@@ -165,7 +136,7 @@ class TSRAequestAdapter extends TypeAdapter<TSARequest> {
 
   @override
   TSARequest read(BinaryReader reader) {
-    return TSARequest.fromUint8List(reader.read());
+    return TSARequest.restoreFromUint8List(reader.read());
   }
 
   @override
