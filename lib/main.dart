@@ -16,8 +16,9 @@ void main() async {
   }
 
   await Hive.openBox(boxFilenames);
-  await Hive.openBox<TSARequest>(boxTSQ);
   Hive.registerAdapter(TSRAequestAdapter());
+
+  await Hive.openBox<TSARequest>(boxTSQ);
 
   runApp(const MyApp());
 }
@@ -84,10 +85,10 @@ class _MyHomePageState extends State<MyHomePage> {
             shrinkWrap: true,
             itemCount: hiveFilenames.length,
             itemBuilder: (BuildContext context, int index) {
-              return ListTile(
-                title:
-                    Text(hiveFilenames.getAt(hiveFilenames.length - index - 1)),
-              );
+              return Card(
+                  child: Text(
+                hiveFilenames.getAt(index),
+              ));
             },
           )
         ],
@@ -109,8 +110,12 @@ class _MyHomePageState extends State<MyHomePage> {
           algorithm: TSAHash.sha256,
           nonce: nonceValue,
           certReq: true);
+      TSAResponse tsr =
+          await tsq.run(hostname: "http://timestamp.digicert.com");
+
       //
       // everything is good, let's add
+
       //
       hiveFilenames.add(result.files.single.path!);
       hiveTSQ.put(result.files.single.path!, tsq);
@@ -136,11 +141,11 @@ class TSRAequestAdapter extends TypeAdapter<TSARequest> {
 
   @override
   TSARequest read(BinaryReader reader) {
-    return TSARequest.restoreFromUint8List(reader.read());
+    return TSARequest.fromJSON(reader.read());
   }
 
   @override
   void write(BinaryWriter writer, TSARequest obj) {
-    writer.write(obj.asn1sequence.encodedBytes);
+    writer.write(obj.toJSON());
   }
 }
