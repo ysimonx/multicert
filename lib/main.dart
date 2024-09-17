@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:tsa_rfc3161/tsa_rfc3161.dart';
 import 'package:hive/hive.dart';
 
-String boxFilenames = "filenames";
-String boxTSQ = "tsq";
-String boxTSR = "tsr";
+String boxFilenames = "filenames_v2";
+String boxTSQ = "tsq_v2";
+String boxTSR = "tsr_v2";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,9 +16,14 @@ void main() async {
   }
 
   await Hive.openBox(boxFilenames);
-  Hive.registerAdapter(TSRAequestAdapter());
 
+  Hive.registerAdapter(TSARequestAdapter());
   await Hive.openBox<TSARequest>(boxTSQ);
+
+  /*
+  Hive.registerAdapter(ListTSAResponseAdapter());
+  await Hive.openBox<TSARequest>(boxTSR);
+  */
 
   runApp(const MyApp());
 }
@@ -49,8 +54,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   List<String> filenames = [];
-  Map<String, TSAResponse> mapFilenameTSARequest = {};
-  Map<String, List<TSAResponse>> mapFilenameTSAResponses = {};
 
   late Box hiveFilenames;
   late Box hiveTSQ;
@@ -85,10 +88,12 @@ class _MyHomePageState extends State<MyHomePage> {
             shrinkWrap: true,
             itemCount: hiveFilenames.length,
             itemBuilder: (BuildContext context, int index) {
-              return Card(
-                  child: Text(
-                hiveFilenames.getAt(index),
-              ));
+              String filename = hiveFilenames.getAt(index);
+
+              TSARequest tsq = hiveTSQ.get(filename);
+              print(tsq.toJSON());
+
+              return Card(child: Text(filename));
             },
           )
         ],
@@ -113,12 +118,17 @@ class _MyHomePageState extends State<MyHomePage> {
       TSAResponse tsr =
           await tsq.run(hostname: "http://timestamp.digicert.com");
 
+      List<TSAResponse> list = [tsr];
+
       //
       // everything is good, let's add
 
       //
       hiveFilenames.add(result.files.single.path!);
       hiveTSQ.put(result.files.single.path!, tsq);
+      /*
+        hiveTSR.put(result.files.single.path!, list);
+      */
     } on Exception catch (e) {
       _errorMessage = "exception : ${e.toString()}";
       SnackBar snackBar = SnackBar(
@@ -134,8 +144,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-// Can be generated automatically
-class TSRAequestAdapter extends TypeAdapter<TSARequest> {
+class TSARequestAdapter extends TypeAdapter<TSARequest> {
   @override
   final typeId = 0;
 
@@ -149,3 +158,30 @@ class TSRAequestAdapter extends TypeAdapter<TSARequest> {
     writer.write(obj.toJSON());
   }
 }
+
+/*
+class ListTSAResponseAdapter extends TypeAdapter<List<TSAResponse>> {
+  @override
+  final typeId = 1;
+
+  @override
+  List<TSAResponse> read(BinaryReader reader) {
+    List<TSAResponse> result = [];
+
+    List<dynamic> list = reader.read();
+    for (var i = 0; i < list.length; i++) {
+      result.add(TSAResponse.fromJSON(list[i]));
+    }
+    return result;
+  }
+
+  @override
+  void write(BinaryWriter writer, List<TSAResponse> obj) {
+    List<Map<String, dynamic>> list = [];
+    for (var i = 0; i < obj.length; i++) {
+      list.add(obj[i].toJSON());
+    }
+    writer.write(list);
+  }
+}
+*/
