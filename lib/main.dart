@@ -20,10 +20,8 @@ void main() async {
   Hive.registerAdapter(TSARequestAdapter());
   await Hive.openBox<TSARequest>(boxTSQ);
 
-  /*
   Hive.registerAdapter(ListTSAResponseAdapter());
-  await Hive.openBox<TSARequest>(boxTSR);
-  */
+  await Hive.openBox<List<TSAResponse>>(boxTSR);
 
   runApp(const MyApp());
 }
@@ -57,7 +55,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   late Box hiveFilenames;
   late Box hiveTSQ;
-
+  late Box hiveTSR;
   String _errorMessage = "";
 
   @override
@@ -65,6 +63,7 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     hiveFilenames = Hive.box(boxFilenames);
     hiveTSQ = Hive.box<TSARequest>(boxTSQ);
+    hiveTSR = Hive.box<List<TSAResponse>>(boxTSR);
   }
 
   @override
@@ -122,13 +121,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
       //
       // everything is good, let's add
-
       //
       hiveFilenames.add(result.files.single.path!);
       hiveTSQ.put(result.files.single.path!, tsq);
-      /*
-        hiveTSR.put(result.files.single.path!, list);
-      */
+      hiveTSR.put(result.files.single.path!, list);
+      //
     } on Exception catch (e) {
       _errorMessage = "exception : ${e.toString()}";
       SnackBar snackBar = SnackBar(
@@ -150,7 +147,10 @@ class TSARequestAdapter extends TypeAdapter<TSARequest> {
 
   @override
   TSARequest read(BinaryReader reader) {
-    return TSARequest.fromJSON(reader.read());
+    var x = reader.read();
+    var y = Map<String, dynamic>.from(
+        x); // convert map<dynamic, dynamic> to map<string, dynamic>
+    return TSARequest.fromJSON(y);
   }
 
   @override
@@ -159,7 +159,6 @@ class TSARequestAdapter extends TypeAdapter<TSARequest> {
   }
 }
 
-/*
 class ListTSAResponseAdapter extends TypeAdapter<List<TSAResponse>> {
   @override
   final typeId = 1;
@@ -184,4 +183,3 @@ class ListTSAResponseAdapter extends TypeAdapter<List<TSAResponse>> {
     writer.write(list);
   }
 }
-*/

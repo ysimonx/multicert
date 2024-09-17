@@ -409,10 +409,10 @@ packages:
     dependency: "direct main"
     description:
       name: tsa_rfc3161
-      sha256: b648649177792d737f618ac341459596e418917467b530255b6d2cd046bab7b1
+      sha256: f3b2ae7c689e2c275baa644b5ac95be75bbcdcb8f23beca209daa2bffc3f41d3
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.23"
+    version: "1.0.24"
   typed_data:
     dependency: transitive
     description:
