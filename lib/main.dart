@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
@@ -5,9 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:tsa_rfc3161/tsa_rfc3161.dart';
 import 'package:hive/hive.dart';
 
-String boxFilenames = "filenames_v2";
-String boxTSQ = "tsq_v2";
-String boxTSR = "tsr_v2";
+String boxFilenames = "filenames_v7";
+String boxTSQ = "tsq_v7";
+String boxTSR = "tsr_v7";
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +23,7 @@ void main() async {
   await Hive.openBox<TSARequest>(boxTSQ);
 
   Hive.registerAdapter(ListTSAResponseAdapter());
-  await Hive.openBox<List<TSAResponse>>(boxTSR);
+  await Hive.openBox<ListTSAResponse>(boxTSR);
 
   runApp(const MyApp());
 }
@@ -63,7 +65,7 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     hiveFilenames = Hive.box(boxFilenames);
     hiveTSQ = Hive.box<TSARequest>(boxTSQ);
-    hiveTSR = Hive.box<List<TSAResponse>>(boxTSR);
+    hiveTSR = Hive.box<ListTSAResponse>(boxTSR);
   }
 
   @override
@@ -92,6 +94,9 @@ class _MyHomePageState extends State<MyHomePage> {
               TSARequest tsq = hiveTSQ.get(filename);
               print(tsq.toJSON());
 
+              ListTSAResponse? l2 = hiveTSR.get(filename);
+              print(l2);
+
               return Card(child: Text(filename));
             },
           )
@@ -117,14 +122,19 @@ class _MyHomePageState extends State<MyHomePage> {
       TSAResponse tsr =
           await tsq.run(hostname: "http://timestamp.digicert.com");
 
-      List<TSAResponse> list = [tsr];
+      ListTSAResponse listTSAResponse = ListTSAResponse();
+      listTSAResponse.items.add(tsr);
 
       //
       // everything is good, let's add
       //
       hiveFilenames.add(result.files.single.path!);
       hiveTSQ.put(result.files.single.path!, tsq);
-      hiveTSR.put(result.files.single.path!, list);
+      hiveTSR.put(result.files.single.path!, listTSAResponse);
+
+      ListTSAResponse l2 = hiveTSR.get(result.files.single.path!);
+      print(l2);
+
       //
     } on Exception catch (e) {
       _errorMessage = "exception : ${e.toString()}";
@@ -141,6 +151,35 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
+class ListTSAResponse {
+  List<TSAResponse> items = [];
+  ListTSAResponse();
+
+  ListTSAResponse.fromJSON(Map<String, dynamic> json) {
+    var list = json["list"];
+    for (var i = 0; i < list.length; i++) {
+      var l = list[i];
+
+      Map<String, dynamic> item = Map<String, dynamic>.from(l);
+      // encode/decode because of "_Map<dynamic, dynamic>" is not a subtype of type "Map<String, dynamic>"
+      String s = jsonEncode(item);
+      Map<String, dynamic> x = jsonDecode(s);
+      items.add(TSAResponse.fromJSON(x));
+    }
+  }
+
+  Map<String, dynamic> toJSON() {
+    Map<String, dynamic> result = {};
+    List<dynamic> l = [];
+    for (var i = 0; i < items.length; i++) {
+      l.add(items[i].toJSON());
+    }
+
+    result = {"list": l};
+    return result;
+  }
+}
+
 class TSARequestAdapter extends TypeAdapter<TSARequest> {
   @override
   final typeId = 0;
@@ -148,8 +187,8 @@ class TSARequestAdapter extends TypeAdapter<TSARequest> {
   @override
   TSARequest read(BinaryReader reader) {
     var x = reader.read();
-    var y = Map<String, dynamic>.from(
-        x); // convert map<dynamic, dynamic> to map<string, dynamic>
+    // convert map<dynamic, dynamic> to map<string, dynamic>
+    var y = Map<String, dynamic>.from(x);
     return TSARequest.fromJSON(y);
   }
 
@@ -159,27 +198,21 @@ class TSARequestAdapter extends TypeAdapter<TSARequest> {
   }
 }
 
-class ListTSAResponseAdapter extends TypeAdapter<List<TSAResponse>> {
+class ListTSAResponseAdapter extends TypeAdapter<ListTSAResponse> {
   @override
   final typeId = 1;
 
   @override
-  List<TSAResponse> read(BinaryReader reader) {
-    List<TSAResponse> result = [];
+  ListTSAResponse read(BinaryReader reader) {
+    var x = reader.read();
+    var json = Map<String, dynamic>.from(x);
 
-    List<dynamic> list = reader.read();
-    for (var i = 0; i < list.length; i++) {
-      result.add(TSAResponse.fromJSON(list[i]));
-    }
+    ListTSAResponse result = ListTSAResponse.fromJSON(json);
     return result;
   }
 
   @override
-  void write(BinaryWriter writer, List<TSAResponse> obj) {
-    List<Map<String, dynamic>> list = [];
-    for (var i = 0; i < obj.length; i++) {
-      list.add(obj[i].toJSON());
-    }
-    writer.write(list);
+  void write(BinaryWriter writer, ListTSAResponse obj) {
+    writer.write(obj.toJSON());
   }
 }
